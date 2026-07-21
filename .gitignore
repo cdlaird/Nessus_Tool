@@ -1,0 +1,6 @@
+# Runtime / operator artifacts (do not commit secrets or machine state)
+Tool_Config.json
+IP_Baselines.json
+Nessus_Deployment_History.csv
+*.log
+Software Collection/

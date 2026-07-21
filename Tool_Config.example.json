@@ -1,0 +1,8 @@
+{
+  "RHELTargetHost": "192.168.50.7",
+  "AgentLinkPort": 8834,
+  "AVDir": ".",
+  "AgentDir": ".",
+  "NessusCliPath": "C:\\Program Files\\Tenable\\Nessus Agent\\nessuscli.exe",
+  "LastGroups": ""
+}
