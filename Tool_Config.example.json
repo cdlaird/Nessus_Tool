@@ -1,0 +1,10 @@
+{
+  "RHELTargetHost": "192.168.50.7",
+  "SshUser": "root",
+  "SshOpts": "-o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new",
+  "AgentLinkPort": 8834,
+  "AVDir": ".",
+  "AgentDir": ".",
+  "NessusCliPath": "C:\\Program Files\\Tenable\\Nessus Agent\\nessuscli.exe",
+  "LastGroups": ""
+}
