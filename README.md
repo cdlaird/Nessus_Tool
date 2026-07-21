@@ -4,7 +4,7 @@ WinForms PowerShell operator console for Nessus Agent field deployments.
 
 Stage network adapters safely, update antivirus signatures, install and link the Nessus Agent, collect audits, then restore IP settings and clean up.
 
-**Version:** 2.1.0  
+**Version:** 2.2.0  
 **Platform:** Windows (PowerShell 5.1+)  
 **UI:** System.Windows.Forms
 
@@ -111,6 +111,7 @@ Nessus_Tool/
 ├── Tool_Config.example.json     # Sample settings (copy / edit as needed)
 ├── README.md
 ├── docs/                        # Full documentation
+│   ├── DEPLOYMENT_GUIDE.md      # Official Deployment & Scan SOP
 │   ├── USER_GUIDE.md
 │   ├── CONFIGURATION.md
 │   ├── TROUBLESHOOTING.md
@@ -130,7 +131,7 @@ Runtime files (`Tool_Config.json`, `IP_Baselines.json`, history CSV, logs) are g
 | Tab | Purpose |
 |-----|---------|
 | **Preflight** | Elevation, packages, agent service, ICMP/TCP to scanner, SSH + remote `nessusd` |
-| **Assign IP** | DHCP / APIPA / static with locked baselines (`IP_Baselines.json`) |
+| **Assign IP** | DHCP / APIPA / static with locked baselines; **check if target IP is free** (ping/ARP) |
 | **AV Update** | Run `mpam-fe.exe`; show product version and signature age |
 | **Agent Install + Link** | Detect MSI, install, link, status, one-click deploy, remote service helpers |
 | **Deep Cleanup** | Unlink, stop, uninstall, dirs/reg, full wizard, McAfee purge |

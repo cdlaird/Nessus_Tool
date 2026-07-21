@@ -41,6 +41,16 @@ Same root cause as above, or UAC filtered token. Always use a full elevated sess
 - Manually set the adapter back to the known-good config, then **Recapture Baseline**.
 - Or import a known-good export from another machine/engagement if you have one.
 
+### “IP appears in use” / availability check says IN USE
+
+**Cause:** Another host answered ping, ARP showed a neighbor MAC, or this PC already has that address on another adapter.
+
+**Fix:**
+- Pick a different staging IP.
+- Confirm you are on the correct Ethernet segment (cable to Manager/switch).
+- If you are sure the address is yours (false positive / stale ARP), you can override the warning at apply time.
+- Note: **LIKELY FREE** is not a guarantee — hosts that block ICMP and are quiet on ARP can still exist.
+
 ### Apply succeeds but Verify shows unexpected IP
 
 **Cause:** DHCP delay, multiple addresses, or VPN/filter drivers.

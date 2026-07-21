@@ -115,7 +115,11 @@ Ensure the scan policy includes these required **DISA STIG Plugin Families**:
 - Default Gateway  
 - Primary DNS Server  
 
-**2.7** Click **Apply Network Profile Layout Changes** and confirm the prompt.
+**2.6b** Click **Check if Target IP is Free**. Confirm the status shows **LIKELY FREE** (not **IN USE**).  
+This pings the address and checks ARP so you do not collide with another host.
+
+**2.7** Click **Apply Network Profile Layout Changes** and confirm the prompt.  
+(If availability check is enabled and the IP looks taken, you will get a conflict warning.)
 
 **2.8** Confirm success in the rolling activity log on the right. If **Verify live IP after apply** is checked, confirm the live IP matches the intended address.
 

@@ -13,7 +13,7 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-$Script:ToolVersion = "2.1.0"
+$Script:ToolVersion = "2.2.0"
 
 # Default DIR
 $Global:AVDir    = Split-Path -Parent $PSCommandPath
@@ -190,6 +190,146 @@ function Get-LiveIPv4OnAdapter {
         if (-not $ipConf) { return $null }
         return ($ipConf.IPv4Address | Select-Object -First 1).IPAddress
     } catch { return $null }
+}
+
+function Test-ValidIPv4 ($ipAddress) {
+    $pattern = "^([1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])(\.([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])){3}$"
+    return $ipAddress -match $pattern
+}
+
+# Checks whether a candidate IPv4 appears free to claim on the local LAN.
+# - OWNED_LOCALLY: already assigned to this machine (optionally the selected adapter)
+# - IN_USE: ICMP reply and/or ARP entry with a MAC from another host
+# - LIKELY_FREE: no ping reply and no ARP MAC (ICMP-blocked hosts can still false-negative)
+# - INVALID / ERROR: bad input or probe failure
+function Test-IpAddressAvailability {
+    param(
+        [Parameter(Mandatory = $true)][string]$IpAddress,
+        [string]$SelectedInterface = $null
+    )
+
+    $result = [PSCustomObject]@{
+        Status      = "ERROR"
+        Available   = $false
+        Detail      = ""
+        MacAddress  = ""
+        Responded   = $false
+        OwnedLocally = $false
+    }
+
+    if (-not (Test-ValidIPv4 $IpAddress)) {
+        $result.Status = "INVALID"
+        $result.Detail = "Not a valid IPv4 address."
+        return $result
+    }
+
+    try {
+        # Is this IP already bound on this PC?
+        $localMatches = @()
+        try {
+            $localMatches = @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                Where-Object { $_.IPAddress -eq $IpAddress })
+        } catch { $localMatches = @() }
+
+        if ($localMatches.Count -gt 0) {
+            $ifNames = ($localMatches | ForEach-Object { $_.InterfaceAlias } | Select-Object -Unique) -join ", "
+            $result.OwnedLocally = $true
+            $result.MacAddress = ""
+            if ($SelectedInterface -and ($localMatches.InterfaceAlias -contains $SelectedInterface)) {
+                $result.Status = "OWNED_LOCALLY"
+                $result.Available = $true
+                $result.Detail = "Already assigned to selected adapter '$SelectedInterface' on this PC."
+            } else {
+                $result.Status = "OWNED_LOCALLY"
+                $result.Available = $false
+                $result.Detail = "Already assigned to this PC on: $ifNames"
+            }
+            return $result
+        }
+
+        # Probe: ICMP ping (best-effort). Then inspect ARP for a MAC neighbor.
+        $pingOk = $false
+        try {
+            $pingOk = Test-Connection -ComputerName $IpAddress -Count 2 -Quiet -ErrorAction SilentlyContinue
+        } catch { $pingOk = $false }
+        $result.Responded = [bool]$pingOk
+
+        # Give ARP a moment to populate after ping attempts
+        Start-Sleep -Milliseconds 300
+        [System.Windows.Forms.Application]::DoEvents()
+
+        $mac = ""
+        try {
+            $arpLine = & arp.exe -a $IpAddress 2>$null | Where-Object { $_ -match [regex]::Escape($IpAddress) } | Select-Object -First 1
+            if ($arpLine -match "([0-9a-fA-F]{2}(-[0-9a-fA-F]{2}){5})") {
+                $mac = $Matches[1]
+            } elseif ($arpLine -match "([0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5})") {
+                $mac = $Matches[1]
+            }
+        } catch { $mac = "" }
+        $result.MacAddress = $mac
+
+        if ($pingOk) {
+            $result.Status = "IN_USE"
+            $result.Available = $false
+            $result.Detail = if ($mac) {
+                "Host responded to ping. ARP MAC: $mac — IP appears taken."
+            } else {
+                "Host responded to ping — IP appears taken."
+            }
+            return $result
+        }
+
+        if ($mac -and $mac -notmatch "^(00-00-00-00-00-00|ff-ff-ff-ff-ff-ff)$") {
+            $result.Status = "IN_USE"
+            $result.Available = $false
+            $result.Detail = "No ping reply, but ARP shows neighbor MAC $mac — IP likely in use (ICMP may be blocked)."
+            return $result
+        }
+
+        $result.Status = "LIKELY_FREE"
+        $result.Available = $true
+        $result.Detail = "No ping reply and no ARP neighbor found. IP looks free to use (hosts that block ICMP can still be present)."
+        return $result
+    } catch {
+        $result.Status = "ERROR"
+        $result.Detail = "Availability check failed: $_"
+        return $result
+    }
+}
+
+function Show-IpAvailabilityResult {
+    param($ProbeResult, [string]$IpAddress)
+
+    switch ($ProbeResult.Status) {
+        "LIKELY_FREE" {
+            $lblIpAvailVal.Text = "LIKELY FREE — $IpAddress"
+            $lblIpAvailVal.ForeColor = [System.Drawing.Color]::DarkGreen
+        }
+        "OWNED_LOCALLY" {
+            if ($ProbeResult.Available) {
+                $lblIpAvailVal.Text = "OK (already on this adapter) — $IpAddress"
+                $lblIpAvailVal.ForeColor = [System.Drawing.Color]::DarkGreen
+            } else {
+                $lblIpAvailVal.Text = "IN USE on this PC — $IpAddress"
+                $lblIpAvailVal.ForeColor = [System.Drawing.Color]::DarkRed
+            }
+        }
+        "IN_USE" {
+            $lblIpAvailVal.Text = "IN USE — $IpAddress"
+            $lblIpAvailVal.ForeColor = [System.Drawing.Color]::DarkRed
+        }
+        "INVALID" {
+            $lblIpAvailVal.Text = "INVALID IP"
+            $lblIpAvailVal.ForeColor = [System.Drawing.Color]::DarkRed
+        }
+        default {
+            $lblIpAvailVal.Text = "CHECK FAILED"
+            $lblIpAvailVal.ForeColor = [System.Drawing.Color]::DarkOrange
+        }
+    }
+
+    Write-Log "[ IP CHECK ] $IpAddress → $($ProbeResult.Status): $($ProbeResult.Detail)"
 }
 
 function Invoke-SshRemote {
@@ -747,16 +887,24 @@ $grpIPMode.Controls.Add($radCustom)
 
 $chkVerifyAfter = New-Object System.Windows.Forms.CheckBox
 $chkVerifyAfter.Text = "Verify live IP after apply (recommended)"
-$chkVerifyAfter.Location = New-Object System.Drawing.Point(20, 140)
-$chkVerifyAfter.Size = New-Object System.Drawing.Size(400, 25)
+$chkVerifyAfter.Location = New-Object System.Drawing.Point(20, 130)
+$chkVerifyAfter.Size = New-Object System.Drawing.Size(400, 22)
 $chkVerifyAfter.Checked = $true
 $chkVerifyAfter.Font = $FontRegular
 $grpIPMode.Controls.Add($chkVerifyAfter)
 
+$chkCheckIpFree = New-Object System.Windows.Forms.CheckBox
+$chkCheckIpFree.Text = "Check IP is free before apply (recommended)"
+$chkCheckIpFree.Location = New-Object System.Drawing.Point(20, 152)
+$chkCheckIpFree.Size = New-Object System.Drawing.Size(400, 22)
+$chkCheckIpFree.Checked = $true
+$chkCheckIpFree.Font = $FontRegular
+$grpIPMode.Controls.Add($chkCheckIpFree)
+
 $lblLiveIpHint = New-Object System.Windows.Forms.Label
 $lblLiveIpHint.Text = "Live IP after change: (not yet applied)"
-$lblLiveIpHint.Location = New-Object System.Drawing.Point(20, 170)
-$lblLiveIpHint.Size = New-Object System.Drawing.Size(420, 20)
+$lblLiveIpHint.Location = New-Object System.Drawing.Point(20, 175)
+$lblLiveIpHint.Size = New-Object System.Drawing.Size(420, 18)
 $lblLiveIpHint.Font = $FontRegular
 $lblLiveIpHint.ForeColor = [System.Drawing.Color]::DimGray
 $grpIPMode.Controls.Add($lblLiveIpHint)
@@ -894,7 +1042,7 @@ Populate-InterfaceList
 $grpStaticFields = New-Object System.Windows.Forms.GroupBox
 $grpStaticFields.Text = " 3. Custom Static Configuration Settings (Manual Mode Only) "
 $grpStaticFields.Location = New-Object System.Drawing.Point(20, 395)
-$grpStaticFields.Size = New-Object System.Drawing.Size(830, 190)
+$grpStaticFields.Size = New-Object System.Drawing.Size(830, 230)
 $grpStaticFields.Font = $FontBold
 $grpStaticFields.Enabled = $false
 $TabIP.Controls.Add($grpStaticFields)
@@ -960,14 +1108,76 @@ $txtGateway.Add_Leave({
     }
 })
 
-function Test-ValidIPv4 ($ipAddress) {
-    $pattern = "^([1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])(\.([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])){3}$"
-    return $ipAddress -match $pattern
-}
+$btnCheckIpFree = New-Object System.Windows.Forms.Button
+$btnCheckIpFree.Text = "Check if Target IP is Free"
+$btnCheckIpFree.Location = New-Object System.Drawing.Point(20, 140)
+$btnCheckIpFree.Size = New-Object System.Drawing.Size(250, 35)
+$btnCheckIpFree.BackColor = [System.Drawing.Color]::Teal
+$btnCheckIpFree.ForeColor = [System.Drawing.Color]::White
+$btnCheckIpFree.Font = $FontBold
+$btnCheckIpFree.Add_Click({
+    $candidate = $txtStaticIP.Text.Trim()
+    if ([string]::IsNullOrWhiteSpace($candidate)) {
+        [System.Windows.Forms.MessageBox]::Show("Enter a Target IP Address first.", "Nothing to Check", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        return
+    }
+    Set-Progress 20
+    Write-Log "[*] Checking whether $candidate is free on the LAN..."
+    $probe = Test-IpAddressAvailability -IpAddress $candidate -SelectedInterface $lbInterfaces.SelectedItem
+    Show-IpAvailabilityResult -ProbeResult $probe -IpAddress $candidate
+    Set-Progress 100
+
+    if ($probe.Status -eq "IN_USE" -or ($probe.Status -eq "OWNED_LOCALLY" -and -not $probe.Available)) {
+        [System.Windows.Forms.MessageBox]::Show(
+            "IP $candidate does NOT look free.`n`n$($probe.Detail)",
+            "IP In Use",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        )
+    } elseif ($probe.Status -eq "LIKELY_FREE" -or ($probe.Status -eq "OWNED_LOCALLY" -and $probe.Available)) {
+        [System.Windows.Forms.MessageBox]::Show(
+            "IP $candidate looks available.`n`n$($probe.Detail)",
+            "IP Likely Free",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        )
+    } else {
+        [System.Windows.Forms.MessageBox]::Show(
+            "Could not determine availability for $candidate.`n`n$($probe.Detail)",
+            "IP Check Incomplete",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        )
+    }
+})
+$grpStaticFields.Controls.Add($btnCheckIpFree)
+
+$lblIpAvailTag = New-Object System.Windows.Forms.Label
+$lblIpAvailTag.Text = "Availability:"
+$lblIpAvailTag.Location = New-Object System.Drawing.Point(290, 148)
+$lblIpAvailTag.Font = $FontBold
+$lblIpAvailTag.AutoSize = $true
+$grpStaticFields.Controls.Add($lblIpAvailTag)
+
+$lblIpAvailVal = New-Object System.Windows.Forms.Label
+$lblIpAvailVal.Text = "Not checked yet"
+$lblIpAvailVal.Location = New-Object System.Drawing.Point(400, 148)
+$lblIpAvailVal.Size = New-Object System.Drawing.Size(400, 25)
+$lblIpAvailVal.Font = $FontRegular
+$lblIpAvailVal.ForeColor = [System.Drawing.Color]::DimGray
+$grpStaticFields.Controls.Add($lblIpAvailVal)
+
+$lblIpAvailHint = New-Object System.Windows.Forms.Label
+$lblIpAvailHint.Text = "Probes with ping + ARP. A reply/MAC means taken. No reply usually means free (ICMP-blocked hosts can hide)."
+$lblIpAvailHint.Location = New-Object System.Drawing.Point(20, 185)
+$lblIpAvailHint.Size = New-Object System.Drawing.Size(790, 30)
+$lblIpAvailHint.Font = New-Object System.Drawing.Font("Segoe UI", 8)
+$lblIpAvailHint.ForeColor = [System.Drawing.Color]::DimGray
+$grpStaticFields.Controls.Add($lblIpAvailHint)
 
 $btnApplyIPChange = New-Object System.Windows.Forms.Button
 $btnApplyIPChange.Text = "Apply Network Profile Layout Changes"
-$btnApplyIPChange.Location = New-Object System.Drawing.Point(20, 600)
+$btnApplyIPChange.Location = New-Object System.Drawing.Point(20, 640)
 $btnApplyIPChange.Size = New-Object System.Drawing.Size(830, 45)
 $btnApplyIPChange.BackColor = [System.Drawing.Color]::DarkSlateBlue
 $btnApplyIPChange.ForeColor = [System.Drawing.Color]::White
@@ -988,6 +1198,50 @@ $btnApplyIPChange.Add_Click({
         Write-Log "[!] IP Action Aborted: No saved baseline exists for '$SelectedInterface'. Re-select the adapter in the list to capture one first."
         [System.Windows.Forms.MessageBox]::Show("No safe restore point has been saved for this adapter yet. Re-select it in the interface list first so a baseline can be captured, then try again.", "Baseline Required", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
         return
+    }
+
+    # Pre-flight: is the target static/APIPA address free on the wire?
+    if ($chkCheckIpFree.Checked -and ($radCustom.Checked -or $radAPIPA.Checked)) {
+        $candidateIp = if ($radCustom.Checked) { $txtStaticIP.Text.Trim() } else { "169.254.0.10" }
+        if ($radCustom.Checked -and -not (Test-ValidIPv4 $candidateIp)) {
+            Write-Log "[!] IP Action Aborted: Target IP is not a valid IPv4 address."
+            [System.Windows.Forms.MessageBox]::Show("Enter a valid Target IP Address before applying.", "Validation Warning", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+            return
+        }
+
+        Write-Log "[*] Checking LAN availability for $candidateIp before apply..."
+        Set-Progress 10
+        $probe = Test-IpAddressAvailability -IpAddress $candidateIp -SelectedInterface $SelectedInterface
+        if ($radCustom.Checked) { Show-IpAvailabilityResult -ProbeResult $probe -IpAddress $candidateIp }
+
+        if ($probe.Status -eq "IN_USE" -or ($probe.Status -eq "OWNED_LOCALLY" -and -not $probe.Available)) {
+            $conflict = [System.Windows.Forms.MessageBox]::Show(
+                "WARNING: $candidateIp does not look free.`n`n$($probe.Detail)`n`nApplying it anyway can cause an IP conflict.`n`nApply anyway?",
+                "IP Appears In Use",
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            )
+            if ($conflict -ne [System.Windows.Forms.DialogResult]::Yes) {
+                Write-Log "[*] IP Action cancelled — target address appears in use."
+                Set-Progress 0
+                return
+            }
+            Write-Log "[!] Operator overrode availability warning for $candidateIp."
+        } elseif ($probe.Status -eq "LIKELY_FREE" -or ($probe.Status -eq "OWNED_LOCALLY" -and $probe.Available)) {
+            Write-Log "[+] Availability check passed for $candidateIp ($($probe.Status))."
+        } else {
+            $unknown = [System.Windows.Forms.MessageBox]::Show(
+                "Could not fully confirm whether $candidateIp is free.`n`n$($probe.Detail)`n`nContinue applying anyway?",
+                "IP Check Incomplete",
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Question
+            )
+            if ($unknown -ne [System.Windows.Forms.DialogResult]::Yes) {
+                Write-Log "[*] IP Action cancelled — availability check incomplete."
+                Set-Progress 0
+                return
+            }
+        }
     }
 
     $confirm = [System.Windows.Forms.MessageBox]::Show(

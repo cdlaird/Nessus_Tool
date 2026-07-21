@@ -106,8 +106,10 @@ Safely change adapter addressing while preserving a restore point on disk.
    - **DHCP**
    - **APIPA** (`169.254.0.10` / `255.255.255.0`)
    - **Custom static** (IP, mask, gateway, DNS)
-4. (Recommended) Leave **Verify live IP after apply** checked.
-5. Click **Apply Network Profile Layout Changes** and confirm.
+4. (Recommended) Leave **Verify live IP after apply** and **Check IP is free before apply** checked.
+5. For custom static: click **Check if Target IP is Free** (ping + ARP). Status shows **LIKELY FREE** or **IN USE**.
+6. Click **Apply Network Profile Layout Changes** and confirm.  
+   If the address looks taken, the tool warns and asks before continuing.
 
 ### Important baseline rules
 

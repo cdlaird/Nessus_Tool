@@ -1,5 +1,17 @@
 # Nessus Tool — Changelog
 
+## 2.2.0
+
+### Added
+
+- **IP availability check** on Assign IP (custom static / APIPA)
+  - Button: **Check if Target IP is Free** (ICMP ping + ARP neighbor lookup)
+  - Checkbox: **Check IP is free before apply** (warns on conflict; operator can override)
+  - Detects addresses already bound on the local PC vs another host on the LAN
+  - Status line: LIKELY FREE / IN USE / OK on this adapter
+
+---
+
 ## 2.1.0
 
 Initial documented release of the improved WinForms operator console (based on the prior internal script).
