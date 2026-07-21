@@ -13,16 +13,14 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-$Script:ToolVersion = "2.2.0"
+$Script:ToolVersion = "2.2.1"
 
 # Default DIR
 $Global:AVDir    = Split-Path -Parent $PSCommandPath
 $Global:AgentDir = Split-Path -Parent $PSCommandPath
 
-# Remote RHEL scanner target (overridden by Tool_Config.json when present)
+# Scanner / Manager host for agent linking + connectivity checks (no SSH)
 $Global:RHELTargetHost = "192.168.50.7"
-$Global:SshUser        = "root"
-$Global:SshOpts        = "-o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new"
 $Global:AgentLinkPort  = 8834
 $Global:NessusCliPath  = "C:\Program Files\Tenable\Nessus Agent\nessuscli.exe"
 
@@ -48,8 +46,6 @@ $Global:BaselineStorePath = Join-Path $Global:AgentDir "IP_Baselines.json"
 function Get-DefaultConfig {
     return [ordered]@{
         RHELTargetHost = $Global:RHELTargetHost
-        SshUser        = $Global:SshUser
-        SshOpts        = $Global:SshOpts
         AgentLinkPort  = $Global:AgentLinkPort
         AVDir          = $Global:AVDir
         AgentDir       = $Global:AgentDir
@@ -94,8 +90,6 @@ function Save-ToolConfig($Config) {
 
 function Apply-ToolConfig($Config) {
     if ($Config.RHELTargetHost) { $Global:RHELTargetHost = [string]$Config.RHELTargetHost }
-    if ($Config.SshUser)        { $Global:SshUser        = [string]$Config.SshUser }
-    if ($Config.SshOpts)        { $Global:SshOpts        = [string]$Config.SshOpts }
     if ($Config.AgentLinkPort)  { $Global:AgentLinkPort  = [int]$Config.AgentLinkPort }
     if ($Config.AVDir -and (Test-Path $Config.AVDir))       { $Global:AVDir    = [string]$Config.AVDir }
     if ($Config.AgentDir -and (Test-Path $Config.AgentDir)) { $Global:AgentDir = [string]$Config.AgentDir }
@@ -332,20 +326,6 @@ function Show-IpAvailabilityResult {
     Write-Log "[ IP CHECK ] $IpAddress → $($ProbeResult.Status): $($ProbeResult.Detail)"
 }
 
-function Invoke-SshRemote {
-    param([string]$RemoteCommand)
-    $optParts = $Global:SshOpts.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)
-    $args = @()
-    $args += $optParts
-    $args += @("-l", $Global:SshUser, $Global:RHELTargetHost, $RemoteCommand)
-    try {
-        $output = & ssh @args 2>&1 | Out-String
-        return $output.Trim()
-    } catch {
-        return "SSH_ERROR: $_"
-    }
-}
-
 function Test-TcpPortOpen {
     param(
         [string]$ComputerName,
@@ -471,7 +451,7 @@ function Update-StatusStrip {
     $adminText = if ($Global:IsAdmin) { "ADMIN" } else { "NOT ELEVATED" }
     $adminColor = if ($Global:IsAdmin) { [System.Drawing.Color]::DarkGreen } else { [System.Drawing.Color]::DarkRed }
     $lblStatusStrip.ForeColor = $adminColor
-    $lblStatusStrip.Text = "v$Script:ToolVersion  |  $adminText  |  Host: $($Global:NetworkTracker.ComputerName)  |  Scanner: $($Global:RHELTargetHost):$($Global:AgentLinkPort)  |  SSH: $($Global:SshUser)@$($Global:RHELTargetHost)"
+    $lblStatusStrip.Text = "v$Script:ToolVersion  |  $adminText  |  Host: $($Global:NetworkTracker.ComputerName)  |  Scanner: $($Global:RHELTargetHost):$($Global:AgentLinkPort)"
 }
 Update-StatusStrip
 
@@ -696,24 +676,7 @@ function Invoke-PreflightChecks {
     } else {
         Write-Preflight "[WARN] TCP $($Global:AgentLinkPort) not reachable on $($Global:RHELTargetHost)"
     }
-    Set-Progress 80
-
-    # SSH
-    $sshCmd = Get-Command ssh -ErrorAction SilentlyContinue
-    if ($sshCmd) {
-        Write-Preflight "[PASS] OpenSSH client available: $($sshCmd.Source)"
-        $sshProbe = Invoke-SshRemote "echo OK"
-        if ($sshProbe -match "OK") {
-            Write-Preflight "[PASS] SSH login to $($Global:SshUser)@$($Global:RHELTargetHost) works"
-            $nessusd = Invoke-SshRemote "systemctl is-active nessusd 2>/dev/null || echo unknown"
-            Write-Preflight "[INFO] Remote nessusd: $nessusd"
-        } else {
-            Write-Preflight "[WARN] SSH probe failed: $sshProbe"
-        }
-    } else {
-        Write-Preflight "[WARN] ssh.exe not found on PATH"
-    }
-    Set-Progress 90
+    Set-Progress 85
 
     # Disk space
     try {
@@ -1851,47 +1814,71 @@ $btnSyncTime.Add_Click({
 $TabAgent.Controls.Add($btnSyncTime)
 
 $btnAutoFix = New-Object System.Windows.Forms.Button
-$btnAutoFix.Text = "Auto-Fix Agent Problems (Remote)"
+$btnAutoFix.Text = "Restart Local Agent Service"
 $btnAutoFix.Location = New-Object System.Drawing.Point(20, 555)
 $btnAutoFix.Size = New-Object System.Drawing.Size(390, 30)
 $btnAutoFix.BackColor = [System.Drawing.Color]::DarkRed
 $btnAutoFix.ForeColor = [System.Drawing.Color]::White
 $btnAutoFix.Font = $FontBold
 $btnAutoFix.Add_Click({
-    Sync-ScannerFromUi
+    if (-not (Assert-AdminOrWarn "Restart Agent Service")) { return }
     Set-Progress 20
-    Write-Log "[*] Executing Remote Agent Diagnostic Auto-Fix on $($Global:RHELTargetHost)..."
-    $result = Invoke-SshRemote "sudo systemctl restart nessusd"
-    Write-Log "[*] Remote response: $result"
-    Set-Progress 100
-    Write-Log "[+] Remote Linux services recycle attempted."
+    Write-Log "[*] Restarting local 'Tenable Nessus Agent' service..."
+    $svc = Get-Service -Name "Tenable Nessus Agent" -ErrorAction SilentlyContinue
+    if (-not $svc) {
+        Write-Log "[!] Tenable Nessus Agent service not found. Is the agent installed?"
+        Set-Progress 0
+        return
+    }
+    try {
+        Restart-Service -Name "Tenable Nessus Agent" -Force -ErrorAction Stop
+        Wait-Responsive 2
+        $svc.Refresh()
+        Write-Log "[+] Local agent service restarted. Status: $($svc.Status)"
+        Set-Progress 100
+    } catch {
+        Write-Log "[!] Failed to restart agent service: $_"
+        Set-Progress 0
+    }
 })
 $TabAgent.Controls.Add($btnAutoFix)
 
 $btnServiceCheck = New-Object System.Windows.Forms.Button
-$btnServiceCheck.Text = "Check Agent Service Health (Remote)"
+$btnServiceCheck.Text = "Check Local Agent Service Health"
 $btnServiceCheck.Location = New-Object System.Drawing.Point(20, 595)
 $btnServiceCheck.Size = New-Object System.Drawing.Size(390, 30)
 $btnServiceCheck.BackColor = [System.Drawing.Color]::DarkBlue
 $btnServiceCheck.ForeColor = [System.Drawing.Color]::White
 $btnServiceCheck.Font = $FontBold
 $btnServiceCheck.Add_Click({
-    Sync-ScannerFromUi
     Set-Progress 20
-    Write-Log "[*] Checking remote Tenable services on $($Global:RHELTargetHost)..."
-
-    $Status = Invoke-SshRemote "sudo systemctl is-active nessusd"
-    Write-Log "Remote Service: nessusd — Status: $Status"
-
-    if ($Status -ne "active") {
-        Write-Log "[*] Starting nessusd on remote target..."
-        Invoke-SshRemote "sudo systemctl start nessusd" | Out-Null
-        Set-Progress 100
-        Write-Log "[+] Start command issued."
-    } else {
-        Set-Progress 100
-        Write-Log "[+] Service health check complete. Component is already running."
+    Write-Log "[*] Checking local Tenable Nessus Agent service..."
+    $svc = Get-Service -Name "Tenable Nessus Agent" -ErrorAction SilentlyContinue
+    if (-not $svc) {
+        Write-Log "[!] Service not found. Agent may not be installed."
+        Set-Progress 0
+        return
     }
+
+    Write-Log "Local Service: $($svc.Name) — Status: $($svc.Status) — StartType: $($svc.StartType)"
+
+    if ($svc.Status -ne "Running") {
+        if (-not (Assert-AdminOrWarn "Start Agent Service")) { Set-Progress 0; return }
+        Write-Log "[*] Starting local agent service..."
+        try {
+            Start-Service -Name "Tenable Nessus Agent" -ErrorAction Stop
+            Wait-Responsive 2
+            $svc.Refresh()
+            Write-Log "[+] Service start issued. Status now: $($svc.Status)"
+        } catch {
+            Write-Log "[!] Failed to start service: $_"
+            Set-Progress 0
+            return
+        }
+    } else {
+        Write-Log "[+] Service health check complete. Agent service is running."
+    }
+    Set-Progress 100
 })
 $TabAgent.Controls.Add($btnServiceCheck)
 
@@ -2664,66 +2651,48 @@ $TabRestore.Controls.Add($btnDeleteBaseline)
 
 New-Label $TabSettings "Persistent Tool Settings (saved to Tool_Config.json)" 20 20
 
-New-Label $TabSettings "Scanner / RHEL Host:" 20 60
+New-Label $TabSettings "Scanner / Manager Host:" 20 60
 $txtCfgHost = New-Object System.Windows.Forms.TextBox
 $txtCfgHost.Location = New-Object System.Drawing.Point(220, 55)
 $txtCfgHost.Size = New-Object System.Drawing.Size(250, 25)
 $txtCfgHost.Text = $Global:RHELTargetHost
 $TabSettings.Controls.Add($txtCfgHost)
 
-New-Label $TabSettings "SSH User:" 20 100
-$txtCfgSshUser = New-Object System.Windows.Forms.TextBox
-$txtCfgSshUser.Location = New-Object System.Drawing.Point(220, 95)
-$txtCfgSshUser.Size = New-Object System.Drawing.Size(250, 25)
-$txtCfgSshUser.Text = $Global:SshUser
-$TabSettings.Controls.Add($txtCfgSshUser)
-
-New-Label $TabSettings "SSH Options:" 20 140
-$txtCfgSshOpts = New-Object System.Windows.Forms.TextBox
-$txtCfgSshOpts.Location = New-Object System.Drawing.Point(220, 135)
-$txtCfgSshOpts.Size = New-Object System.Drawing.Size(500, 25)
-$txtCfgSshOpts.Text = $Global:SshOpts
-$TabSettings.Controls.Add($txtCfgSshOpts)
-
-New-Label $TabSettings "Agent Link Port:" 20 180
+New-Label $TabSettings "Agent Link Port:" 20 100
 $txtCfgPort = New-Object System.Windows.Forms.TextBox
-$txtCfgPort.Location = New-Object System.Drawing.Point(220, 175)
+$txtCfgPort.Location = New-Object System.Drawing.Point(220, 95)
 $txtCfgPort.Size = New-Object System.Drawing.Size(100, 25)
 $txtCfgPort.Text = "$($Global:AgentLinkPort)"
 $TabSettings.Controls.Add($txtCfgPort)
 
-New-Label $TabSettings "nessuscli Path:" 20 220
+New-Label $TabSettings "nessuscli Path:" 20 140
 $txtCfgCli = New-Object System.Windows.Forms.TextBox
-$txtCfgCli.Location = New-Object System.Drawing.Point(220, 215)
+$txtCfgCli.Location = New-Object System.Drawing.Point(220, 135)
 $txtCfgCli.Size = New-Object System.Drawing.Size(500, 25)
 $txtCfgCli.Text = $Global:NessusCliPath
 $TabSettings.Controls.Add($txtCfgCli)
 
 $lblCfgHint = New-Object System.Windows.Forms.Label
-$lblCfgHint.Text = "Linking key is never stored in Tool_Config.json. Set env var NESSUS_LINK_KEY to auto-fill the masked key field."
-$lblCfgHint.Location = New-Object System.Drawing.Point(20, 270)
+$lblCfgHint.Text = "Linking key is never stored in Tool_Config.json. Set env var NESSUS_LINK_KEY to auto-fill the masked key field. No SSH/root remote access is used by this tool."
+$lblCfgHint.Location = New-Object System.Drawing.Point(20, 190)
 $lblCfgHint.Size = New-Object System.Drawing.Size(800, 40)
 $lblCfgHint.Font = $FontRegular
 $TabSettings.Controls.Add($lblCfgHint)
 
 $btnSaveSettings = New-Object System.Windows.Forms.Button
 $btnSaveSettings.Text = "Save Settings"
-$btnSaveSettings.Location = New-Object System.Drawing.Point(20, 320)
+$btnSaveSettings.Location = New-Object System.Drawing.Point(20, 250)
 $btnSaveSettings.Size = New-Object System.Drawing.Size(250, 45)
 $btnSaveSettings.BackColor = [System.Drawing.Color]::DarkGreen
 $btnSaveSettings.ForeColor = [System.Drawing.Color]::White
 $btnSaveSettings.Font = $FontBold
 $btnSaveSettings.Add_Click({
     $Global:RHELTargetHost = $txtCfgHost.Text.Trim()
-    $Global:SshUser        = $txtCfgSshUser.Text.Trim()
-    $Global:SshOpts        = $txtCfgSshOpts.Text.Trim()
     $portParsed = 0
     if ([int]::TryParse($txtCfgPort.Text.Trim(), [ref]$portParsed)) { $Global:AgentLinkPort = $portParsed }
     $Global:NessusCliPath  = $txtCfgCli.Text.Trim()
 
     $Global:ToolConfig.RHELTargetHost = $Global:RHELTargetHost
-    $Global:ToolConfig.SshUser        = $Global:SshUser
-    $Global:ToolConfig.SshOpts        = $Global:SshOpts
     $Global:ToolConfig.AgentLinkPort  = $Global:AgentLinkPort
     $Global:ToolConfig.NessusCliPath  = $Global:NessusCliPath
     $Global:ToolConfig.AVDir          = $Global:AVDir
@@ -2743,7 +2712,7 @@ $TabSettings.Controls.Add($btnSaveSettings)
 
 $btnOpenConfig = New-Object System.Windows.Forms.Button
 $btnOpenConfig.Text = "Open Config File"
-$btnOpenConfig.Location = New-Object System.Drawing.Point(290, 320)
+$btnOpenConfig.Location = New-Object System.Drawing.Point(290, 250)
 $btnOpenConfig.Size = New-Object System.Drawing.Size(200, 45)
 $btnOpenConfig.Add_Click({
     if (Test-Path $Global:ConfigPath) {

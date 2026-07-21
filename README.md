@@ -4,7 +4,7 @@ WinForms PowerShell operator console for Nessus Agent field deployments.
 
 Stage network adapters safely, update antivirus signatures, install and link the Nessus Agent, collect audits, then restore IP settings and clean up.
 
-**Version:** 2.2.0  
+**Version:** 2.2.1  
 **Platform:** Windows (PowerShell 5.1+)  
 **UI:** System.Windows.Forms
 
@@ -44,7 +44,7 @@ That guide is the step-by-step procedure (USB prep → Manager plugins/DISA STIG
 | **AV update** | Run offline `mpam-fe.exe` and show Windows Defender signature age |
 | **Agent deploy** | Auto-detect newest `NessusAgent*.msi`, install, link to scanner, check status |
 | **One-click suite** | AV → Install → Link in a single confirmed action |
-| **Preflight** | Validate elevation, packages, connectivity, SSH, and remote `nessusd` before you start |
+| **Preflight** | Validate elevation, packages, and scanner ping/TCP reachability before you start |
 | **Cleanup** | Unlink, stop services, MSI uninstall, remove dirs/registry, optional McAfee purge |
 | **Audit handoff** | Launch companion Software / System Collection scripts |
 | **Restore** | List, export/import, and apply saved IP baselines from disk |
@@ -68,7 +68,6 @@ That guide is the step-by-step procedure (USB prep → Manager plugins/DISA STIG
 
 ### Optional
 
-- **OpenSSH client** (`ssh.exe` on PATH) for remote RHEL scanner health / auto-fix
 - Companion scripts in the tool folder:
   - `Software Collection.ps1`
   - `System Collection.ps1`
@@ -95,7 +94,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Nessus_Tool.ps1
 ### First-run checklist
 
 1. Confirm the status strip says **ADMIN** (bottom of the window).
-2. Open **Settings** → set scanner host / port / SSH user → **Save Settings**.
+2. Open **Settings** → set scanner host / port → **Save Settings**.
 3. Place or browse to `NessusAgent*.msi` and `mpam-fe.exe`.
 4. On **Agent Install + Link**, enter the linking key (or set `NESSUS_LINK_KEY`).
 5. Run **Preflight**.
@@ -130,14 +129,14 @@ Runtime files (`Tool_Config.json`, `IP_Baselines.json`, history CSV, logs) are g
 
 | Tab | Purpose |
 |-----|---------|
-| **Preflight** | Elevation, packages, agent service, ICMP/TCP to scanner, SSH + remote `nessusd` |
+| **Preflight** | Elevation, packages, agent service, ICMP/TCP to scanner |
 | **Assign IP** | DHCP / APIPA / static with locked baselines; **check if target IP is free** (ping/ARP) |
 | **AV Update** | Run `mpam-fe.exe`; show product version and signature age |
-| **Agent Install + Link** | Detect MSI, install, link, status, one-click deploy, remote service helpers |
+| **Agent Install + Link** | Detect MSI, install, link, status, one-click deploy, local service health |
 | **Deep Cleanup** | Unlink, stop, uninstall, dirs/reg, full wizard, McAfee purge |
 | **System Audit** | Hand off to Software / System Collection scripts |
 | **Restore IP** | View / restore / delete / export / import baselines |
-| **Settings** | Persist scanner, SSH, port, `nessuscli` path |
+| **Settings** | Persist scanner host, port, `nessuscli` path |
 
 Right-hand panel: live log (Clear / Copy / Save), progress bar, Open Folder.
 
@@ -174,7 +173,7 @@ See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for UI control details.
 
 | File | When created | Contents |
 |------|--------------|----------|
-| `Tool_Config.json` | First launch / Save Settings | Scanner host, SSH, port, dirs, `nessuscli` path |
+| `Tool_Config.json` | First launch / Save Settings | Scanner host, port, dirs, `nessuscli` path |
 | `IP_Baselines.json` | First adapter selection | Per-machine / per-adapter restore points |
 | `Nessus_Deployment_History.csv` | After IP apply / restore | Timestamped history trail |
 
@@ -203,7 +202,7 @@ Full field reference: [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
 | No MSI found | Put `NessusAgent*.msi` in the Agent folder or Browse to it |
 | Link fails | Check scanner IP/port in Settings; confirm linking key; run Preflight TCP test |
 | Cannot apply IP | Select the adapter once so a baseline is captured and shows **LOCKED** |
-| SSH checks fail | Install OpenSSH client; verify SSH key/password for the configured user |
+| Agent service not running | Use **Check Local Agent Service Health** / **Restart Local Agent Service** |
 
 More cases: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
 
