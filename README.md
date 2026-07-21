@@ -12,6 +12,7 @@ Stage network adapters safely, update antivirus signatures, install and link the
 
 ## Table of contents
 
+- [Official deployment SOP](#official-deployment-sop)
 - [What it does](#what-it-does)
 - [Requirements](#requirements)
 - [Quick start](#quick-start)
@@ -22,6 +23,16 @@ Stage network adapters safely, update antivirus signatures, install and link the
 - [Configuration files](#configuration-files)
 - [Documentation](#documentation)
 - [Troubleshooting (quick)](#troubleshooting-quick)
+
+---
+
+## Official deployment SOP
+
+Field operators should follow:
+
+**[docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) — Nessus Agent Deployment & Scan Guide**
+
+That guide is the step-by-step procedure (USB prep → Manager plugins/DISA STIGs → Assign IP → AV → Install/Link → Scan → Cleanup → Audit → Restore IP → CAECAM handoff).
 
 ---
 
@@ -133,20 +144,17 @@ Right-hand panel: live log (Clear / Copy / Save), progress bar, Open Folder.
 
 ## Recommended workflow
 
-### Deploy
+Follow the official numbered SOP in **[docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md)**.
 
-1. **Preflight** → resolve FAIL / WARN items  
-2. **Assign IP** → select adapter (baseline locks automatically) → apply profile  
-3. **AV Update** → Run AV Update  
-4. **Agent Install + Link** → Install + Link *(or One-Click suite)*  
-5. **Check Agent Status** → confirm linked / syncing  
+Short version:
 
-### Tear-down
+1. Prep USB + verify Manager plugins / DISA STIG policy  
+2. Assign IP (baseline locks) → AV Update → Install + Link → Check Status  
+3. Run scan on Manager  
+4. System Audit → Restore IP → Deep Cleanup  
+5. Hand off reports + history CSV to CAECAM  
 
-1. **Restore IP** → revert selected baseline  
-2. **Deep Cleanup** → unlink / uninstall / full wizard as needed  
-
-See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for step-by-step detail per tab.
+See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for UI control details.
 
 ---
 
@@ -178,7 +186,8 @@ Full field reference: [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
 
 | Document | Description |
 |----------|-------------|
-| [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | Tab-by-tab operator guide and workflows |
+| **[docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md)** | **Official Deployment & Scan SOP** (Word-guide equivalent) |
+| [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | Tab-by-tab tool reference and workflows |
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Config files, env vars, defaults |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common failures and fixes |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md) | Version history / what’s new |

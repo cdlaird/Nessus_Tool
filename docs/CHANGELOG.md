@@ -25,6 +25,7 @@ Initial documented release of the improved WinForms operator console (based on t
 - **`NESSUS_LINK_KEY`** optional env auto-fill for masked linking key
 - Status strip (version, elevation, host, scanner, SSH target)
 - Example config, README, and `docs/` operator documentation
+- Official **Deployment & Scan Guide** (`docs/DEPLOYMENT_GUIDE.md`) aligned to the Word SOP (DISA STIG families, sections 01–08, CAECAM handoff)
 
 ### Safety retained / strengthened
 

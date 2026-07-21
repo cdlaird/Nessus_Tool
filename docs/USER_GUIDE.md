@@ -1,6 +1,12 @@
 # Nessus Tool — User Guide
 
-Operator guide for **Nessus Tool v2.1**. For setup and overview, see the [main README](../README.md).
+Operator UI reference for **Nessus Tool v2.1**.
+
+For the official field procedure (USB prep → scan → cleanup → CAECAM handoff), use:
+
+**[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) — Nessus Agent Deployment & Scan Guide**
+
+For setup and overview, see the [main README](../README.md).
 
 ---
 
