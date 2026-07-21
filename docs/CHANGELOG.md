@@ -1,5 +1,20 @@
 # Nessus Tool — Changelog
 
+## 2.2.1
+
+### Removed
+
+- OpenSSH / `root` remote RHEL helpers (SSH probe, remote `nessusd` start/restart, SSH settings fields)
+- No longer requires OpenSSH client
+
+### Changed
+
+- **Check Local Agent Service Health** / **Restart Local Agent Service** replace the old remote buttons
+- Settings simplified to scanner host, link port, and `nessuscli` path
+- Preflight keeps ping + TCP to scanner only (no SSH)
+
+---
+
 ## 2.2.0
 
 ### Added

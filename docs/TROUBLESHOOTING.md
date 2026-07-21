@@ -142,28 +142,15 @@ Ensure Groups is comma-separated without stray quotes, then unlink/re-link if th
 
 ---
 
-## Preflight / remote SSH
+## Preflight / connectivity
 
 ### Ping WARN but TCP PASS
 
 Often normal (ICMP filtered). Prefer the TCP port result for link readiness.
 
-### `ssh.exe not found`
+### Local agent service not running
 
-Install **OpenSSH Client** (Windows Optional Feature) or ensure `ssh` is on PATH.
-
-### SSH probe failed
-
-**Check:**
-- Host reachable
-- `SshUser` / `SshOpts` in Settings
-- Key-based auth already works in a normal terminal:  
-  `ssh -l root 192.168.50.7`
-- `StrictHostKeyChecking=accept-new` may still fail in locked-down environments — adjust `SshOpts` carefully
-
-### Remote nessusd not active
-
-Use **Check Agent Service Health (Remote)** or **Auto-Fix** (restart). Confirm you have sudo rights on the RHEL host.
+Use **Check Local Agent Service Health** or **Restart Local Agent Service** on the Agent tab (elevated). Confirm the MSI install completed.
 
 ---
 

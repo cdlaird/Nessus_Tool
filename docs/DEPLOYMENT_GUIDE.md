@@ -166,9 +166,9 @@ Optional: fill **Groups** (comma-separated) before linking.
 
 | Symptom | Action |
 |---------|--------|
-| Tenable services stopped / frozen | **Check Agent Service Health (Remote)** on the Manager host |
-| Agent stubbornly offline | **Auto-Fix Agent Problems (Remote)** to restart remote `nessusd` |
-| Still failing | Run **Preflight** TCP port test; confirm key, IP, port, and time sync |
+| Tenable services stopped / frozen | **Check Local Agent Service Health** / **Restart Local Agent Service** |
+| Agent stubbornly offline | Confirm time sync, linking key, scanner IP/port; run **Preflight** TCP test |
+| Still failing | Re-link agent; verify Manager console shows the agent |
 
 > **v2.1 shortcut:** After Preflight + Assign IP + key entry, you may use **One-Click: AV Update + Install + Link**, then still run **Check Agent Status** (step 4.8).
 

@@ -90,7 +90,7 @@ Use this **before** changing IPs or installing.
 | `[FAIL]` | Likely blocker (especially elevation) |
 | `[INFO]` | Context only |
 
-Checks include: elevation, tool path, `mpam-fe.exe`, newest `NessusAgent*.msi`, agent install/service, baseline count, ping, TCP port, SSH login, remote `nessusd` state, free disk space.
+Checks include: elevation, tool path, `mpam-fe.exe`, newest `NessusAgent*.msi`, agent install/service, baseline count, ping, TCP port to scanner, free disk space.
 
 ---
 
@@ -170,8 +170,8 @@ If Defender is unavailable, the tool falls back to third-party WMI AV metadata w
 | **Check Agent Status** | Parse `nessuscli agent status` into the log |
 | **One-Click: AV Update + Install + Link** | Confirmed 3-step suite |
 | **Change Target Computer Time** | Sets **local** OS clock (confirmed) |
-| **Auto-Fix Agent Problems (Remote)** | SSH `systemctl restart nessusd` |
-| **Check Agent Service Health (Remote)** | SSH `systemctl is-active nessusd` (+ start if inactive) |
+| **Restart Local Agent Service** | Restarts Windows service `Tenable Nessus Agent` |
+| **Check Local Agent Service Health** | Shows local service status; starts it if stopped |
 
 ### Linking key options
 
@@ -258,8 +258,7 @@ Persists operator defaults to `Tool_Config.json`.
 
 | Setting | Used by |
 |---------|---------|
-| Scanner / RHEL Host | Link, Preflight, remote SSH helpers |
-| SSH User / Options | Remote health / auto-fix |
+| Scanner / Manager Host | Link + Preflight ping/TCP |
 | Agent Link Port | Link + Preflight TCP test |
 | nessuscli Path | Install/link/status/cleanup paths |
 

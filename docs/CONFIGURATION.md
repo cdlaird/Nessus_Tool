@@ -26,8 +26,6 @@ See also [`../Tool_Config.example.json`](../Tool_Config.example.json):
 ```json
 {
   "RHELTargetHost": "192.168.50.7",
-  "SshUser": "root",
-  "SshOpts": "-o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new",
   "AgentLinkPort": 8834,
   "AVDir": "C:\\Tools\\Nessus_Tool",
   "AgentDir": "C:\\Tools\\Nessus_Tool",
@@ -40,9 +38,7 @@ See also [`../Tool_Config.example.json`](../Tool_Config.example.json):
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `RHELTargetHost` | string | Scanner / Nessus Manager host used for link + Preflight + SSH helpers |
-| `SshUser` | string | SSH username for remote RHEL checks |
-| `SshOpts` | string | Space-separated OpenSSH options |
+| `RHELTargetHost` | string | Scanner / Nessus Manager host used for agent link + Preflight ping/TCP |
 | `AgentLinkPort` | number | TCP port for agent link (typically `8834`) |
 | `AVDir` | string | Directory containing `mpam-fe.exe` |
 | `AgentDir` | string | Directory containing `NessusAgent*.msi` and companion audit scripts |
@@ -59,7 +55,7 @@ See also [`../Tool_Config.example.json`](../Tool_Config.example.json):
 ### What is never stored
 
 - Nessus **linking key**
-- SSH passwords / private key material (use OS SSH agent / key files outside this tool)
+- SSH credentials (this tool does **not** use OpenSSH / root remote access)
 
 ---
 
@@ -151,8 +147,6 @@ Used when no config file exists yet:
 | Setting | Default |
 |---------|---------|
 | Scanner host | `192.168.50.7` |
-| SSH user | `root` |
-| SSH opts | `-o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new` |
 | Link port | `8834` |
 | AV / Agent dirs | Folder containing `Nessus_Tool.ps1` |
 | nessuscli | `C:\Program Files\Tenable\Nessus Agent\nessuscli.exe` |
@@ -177,4 +171,4 @@ Nessus_Deployment_History.csv
 Software Collection/
 ```
 
-5. Remote SSH helpers assume you already have working SSH auth to the scanner host; the tool does not store SSH credentials.
+5. Manager/scanner administration is done in the Nessus Manager UI — the tool only talks to it via normal agent link / ICMP / TCP checks.
