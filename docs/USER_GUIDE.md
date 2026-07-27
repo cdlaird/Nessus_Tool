@@ -175,14 +175,15 @@ If Defender is unavailable, the tool falls back to third-party WMI AV metadata w
 
 ### Linking key options
 
-1. Type into the masked field each run, **or**
-2. Set user/machine env var:
+1. **Settings tab (recommended for USB kits):** paste key → **Save Settings** → Agent tab auto-fills  
+2. Type into the masked field on Agent Install + Link  
+3. Optional env var `NESSUS_LINK_KEY`
 
 ```powershell
 [Environment]::SetEnvironmentVariable("NESSUS_LINK_KEY", "your-key-here", "User")
 ```
 
-The key is **never** written to `Tool_Config.json`.
+When saved via Settings, the key is stored in local `Tool_Config.json` (gitignored). Do not commit real keys.
 
 ### One-click deploy order
 
