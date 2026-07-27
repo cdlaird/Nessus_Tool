@@ -4,6 +4,10 @@ WinForms PowerShell operator console for Nessus Agent field deployments.
 
 Stage network adapters safely, update antivirus signatures, install and link the Nessus Agent, collect audits, then restore IP settings and clean up.
 
+<p align="center">
+  <img src="docs/assets/nessus-tool-overview.png" alt="Nessus Tool workflow overview: Preflight → Assign IP → AV Update → Install + Link → Scan → Audit → Restore → Cleanup" width="100%">
+</p>
+
 **Version:** 2.3.0  
 **Platform:** Windows (PowerShell 5.1+)  
 **UI:** System.Windows.Forms
@@ -96,7 +100,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Nessus_Tool.ps1
 1. Confirm the status strip says **ADMIN** (bottom of the window).
 2. Open **Settings** → set scanner host / port → **Save Settings**.
 3. Place or browse to `NessusAgent*.msi` and `mpam-fe.exe`.
-4. On **Agent Install + Link**, enter the linking key (or set `NESSUS_LINK_KEY`).
+4. Open **Settings**, paste the linking key → **Save Settings** (auto-fills Agent tab).
 5. Run **Preflight**.
 
 ---
