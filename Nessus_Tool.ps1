@@ -13,7 +13,7 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-$Script:ToolVersion = "2.2.1"
+$Script:ToolVersion = "2.3.0"
 
 # Default DIR
 $Global:AVDir    = Split-Path -Parent $PSCommandPath
@@ -23,6 +23,7 @@ $Global:AgentDir = Split-Path -Parent $PSCommandPath
 $Global:RHELTargetHost = "192.168.50.7"
 $Global:AgentLinkPort  = 8834
 $Global:NessusCliPath  = "C:\Program Files\Tenable\Nessus Agent\nessuscli.exe"
+$Global:LinkingKey     = ""
 
 # Global Tracking Object for Assignments
 $Global:NetworkTracker = @{
@@ -50,6 +51,7 @@ function Get-DefaultConfig {
         AVDir          = $Global:AVDir
         AgentDir       = $Global:AgentDir
         NessusCliPath  = $Global:NessusCliPath
+        LinkingKey     = ""
         LastGroups     = ""
     }
 }
@@ -94,6 +96,18 @@ function Apply-ToolConfig($Config) {
     if ($Config.AVDir -and (Test-Path $Config.AVDir))       { $Global:AVDir    = [string]$Config.AVDir }
     if ($Config.AgentDir -and (Test-Path $Config.AgentDir)) { $Global:AgentDir = [string]$Config.AgentDir }
     if ($Config.NessusCliPath)  { $Global:NessusCliPath  = [string]$Config.NessusCliPath }
+    if ($null -ne $Config.LinkingKey) { $Global:LinkingKey = [string]$Config.LinkingKey }
+}
+
+function Get-ResolvedLinkingKey {
+    # Preference: in-memory/config value, then optional environment variable
+    if (-not [string]::IsNullOrWhiteSpace($Global:LinkingKey)) {
+        return [string]$Global:LinkingKey
+    }
+    if (-not [string]::IsNullOrWhiteSpace($env:NESSUS_LINK_KEY)) {
+        return [string]$env:NESSUS_LINK_KEY
+    }
+    return ""
 }
 
 $Global:ToolConfig = Import-ToolConfig
@@ -1572,9 +1586,7 @@ $txtKey = New-Object System.Windows.Forms.TextBox
 $txtKey.Location = New-Object System.Drawing.Point(20, 210)
 $txtKey.Size = New-Object System.Drawing.Size(390, 25)
 $txtKey.UseSystemPasswordChar = $true
-if (-not [string]::IsNullOrWhiteSpace($env:NESSUS_LINK_KEY)) {
-    $txtKey.Text = $env:NESSUS_LINK_KEY
-}
+$txtKey.Text = Get-ResolvedLinkingKey
 $TabAgent.Controls.Add($txtKey)
 
 New-Label $TabAgent "Groups (Optional - Comma separated):" 20 245
@@ -1589,6 +1601,11 @@ function Sync-ScannerFromUi {
     $portParsed = 0
     if ([int]::TryParse($txtLinkPort.Text.Trim(), [ref]$portParsed) -and $portParsed -gt 0) {
         $Global:AgentLinkPort = $portParsed
+    }
+    # Keep linking key in sync when operator types it on the Agent tab
+    if (-not [string]::IsNullOrWhiteSpace($txtKey.Text)) {
+        $Global:LinkingKey = $txtKey.Text.Trim()
+        $Global:ToolConfig.LinkingKey = $Global:LinkingKey
     }
     $Global:ToolConfig.RHELTargetHost = $Global:RHELTargetHost
     $Global:ToolConfig.AgentLinkPort  = $Global:AgentLinkPort
@@ -2672,16 +2689,34 @@ $txtCfgCli.Size = New-Object System.Drawing.Size(500, 25)
 $txtCfgCli.Text = $Global:NessusCliPath
 $TabSettings.Controls.Add($txtCfgCli)
 
+New-Label $TabSettings "Linking Key:" 20 180
+$txtCfgLinkKey = New-Object System.Windows.Forms.TextBox
+$txtCfgLinkKey.Location = New-Object System.Drawing.Point(220, 175)
+$txtCfgLinkKey.Size = New-Object System.Drawing.Size(500, 25)
+$txtCfgLinkKey.UseSystemPasswordChar = $true
+$txtCfgLinkKey.Text = Get-ResolvedLinkingKey
+$TabSettings.Controls.Add($txtCfgLinkKey)
+
+$chkShowLinkKey = New-Object System.Windows.Forms.CheckBox
+$chkShowLinkKey.Text = "Show key"
+$chkShowLinkKey.Location = New-Object System.Drawing.Point(730, 175)
+$chkShowLinkKey.Size = New-Object System.Drawing.Size(100, 25)
+$chkShowLinkKey.Font = $FontRegular
+$chkShowLinkKey.Add_CheckedChanged({
+    $txtCfgLinkKey.UseSystemPasswordChar = -not $chkShowLinkKey.Checked
+})
+$TabSettings.Controls.Add($chkShowLinkKey)
+
 $lblCfgHint = New-Object System.Windows.Forms.Label
-$lblCfgHint.Text = "Linking key is never stored in Tool_Config.json. Set env var NESSUS_LINK_KEY to auto-fill the masked key field. No SSH/root remote access is used by this tool."
-$lblCfgHint.Location = New-Object System.Drawing.Point(20, 190)
+$lblCfgHint.Text = "Save Settings stores the linking key in Tool_Config.json (next to this script) and auto-fills the Agent Install + Link tab. Keep the USB protected — this is a secret."
+$lblCfgHint.Location = New-Object System.Drawing.Point(20, 215)
 $lblCfgHint.Size = New-Object System.Drawing.Size(800, 40)
 $lblCfgHint.Font = $FontRegular
 $TabSettings.Controls.Add($lblCfgHint)
 
 $btnSaveSettings = New-Object System.Windows.Forms.Button
 $btnSaveSettings.Text = "Save Settings"
-$btnSaveSettings.Location = New-Object System.Drawing.Point(20, 250)
+$btnSaveSettings.Location = New-Object System.Drawing.Point(20, 270)
 $btnSaveSettings.Size = New-Object System.Drawing.Size(250, 45)
 $btnSaveSettings.BackColor = [System.Drawing.Color]::DarkGreen
 $btnSaveSettings.ForeColor = [System.Drawing.Color]::White
@@ -2691,28 +2726,46 @@ $btnSaveSettings.Add_Click({
     $portParsed = 0
     if ([int]::TryParse($txtCfgPort.Text.Trim(), [ref]$portParsed)) { $Global:AgentLinkPort = $portParsed }
     $Global:NessusCliPath  = $txtCfgCli.Text.Trim()
+    $Global:LinkingKey     = $txtCfgLinkKey.Text.Trim()
 
     $Global:ToolConfig.RHELTargetHost = $Global:RHELTargetHost
     $Global:ToolConfig.AgentLinkPort  = $Global:AgentLinkPort
     $Global:ToolConfig.NessusCliPath  = $Global:NessusCliPath
+    $Global:ToolConfig.LinkingKey     = $Global:LinkingKey
     $Global:ToolConfig.AVDir          = $Global:AVDir
     $Global:ToolConfig.AgentDir       = $Global:AgentDir
 
     if (Save-ToolConfig $Global:ToolConfig) {
         $txtScannerIP.Text = $Global:RHELTargetHost
         $txtLinkPort.Text  = "$($Global:AgentLinkPort)"
+        $txtKey.Text       = $Global:LinkingKey
         Update-StatusStrip
-        Write-Log "[+] Settings saved to Tool_Config.json"
-        [System.Windows.Forms.MessageBox]::Show("Settings saved.", "Saved", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        Write-Log "[+] Settings saved to Tool_Config.json (linking key auto-fill updated)."
+        [System.Windows.Forms.MessageBox]::Show("Settings saved. Linking key will auto-fill on the Agent Install + Link tab.", "Saved", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
     } else {
         [System.Windows.Forms.MessageBox]::Show("Failed to save settings.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
     }
 })
 $TabSettings.Controls.Add($btnSaveSettings)
 
+$btnClearLinkKey = New-Object System.Windows.Forms.Button
+$btnClearLinkKey.Text = "Clear Saved Key"
+$btnClearLinkKey.Location = New-Object System.Drawing.Point(290, 270)
+$btnClearLinkKey.Size = New-Object System.Drawing.Size(180, 45)
+$btnClearLinkKey.Add_Click({
+    if (-not (Confirm-DestructiveAction "Clear Linking Key" "Remove the saved linking key from Settings and Tool_Config.json?")) { return }
+    $txtCfgLinkKey.Text = ""
+    $txtKey.Text = ""
+    $Global:LinkingKey = ""
+    $Global:ToolConfig.LinkingKey = ""
+    Save-ToolConfig $Global:ToolConfig | Out-Null
+    Write-Log "[*] Linking key cleared from settings/config."
+})
+$TabSettings.Controls.Add($btnClearLinkKey)
+
 $btnOpenConfig = New-Object System.Windows.Forms.Button
 $btnOpenConfig.Text = "Open Config File"
-$btnOpenConfig.Location = New-Object System.Drawing.Point(290, 250)
+$btnOpenConfig.Location = New-Object System.Drawing.Point(490, 270)
 $btnOpenConfig.Size = New-Object System.Drawing.Size(200, 45)
 $btnOpenConfig.Add_Click({
     if (Test-Path $Global:ConfigPath) {

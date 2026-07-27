@@ -149,8 +149,8 @@ This pings the address and checks ARP so you do not collide with another host.
 
 **4.3** In **Scanner IP**, enter the Host Manager’s static IP address. Set **Port** if not using the default `8834`.
 
-**4.4** In **Linking Key**, enter the key from the Nessus Manager console  
-*(or rely on env var `NESSUS_LINK_KEY` if preconfigured — the key is never saved in `Tool_Config.json`)*.
+**4.4** In **Linking Key**, confirm the key is filled (from **Settings → Save Settings**, or paste it).  
+Optional: env var `NESSUS_LINK_KEY` also auto-fills if no Settings key is saved.
 
 **4.5** Click **Install Nessus Agent** to run the MSI silently.
 

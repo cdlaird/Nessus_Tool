@@ -1,5 +1,16 @@
 # Nessus Tool — Changelog
 
+## 2.3.0
+
+### Added
+
+- **Linking Key** field on the Settings tab (masked, with Show key toggle)
+- Saves to `Tool_Config.json` and **auto-fills** the Agent Install + Link tab
+- **Clear Saved Key** button
+- Agent-tab link actions also keep the saved key in sync when used
+
+---
+
 ## 2.2.1
 
 ### Removed

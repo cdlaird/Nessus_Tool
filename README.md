@@ -4,7 +4,7 @@ WinForms PowerShell operator console for Nessus Agent field deployments.
 
 Stage network adapters safely, update antivirus signatures, install and link the Nessus Agent, collect audits, then restore IP settings and clean up.
 
-**Version:** 2.2.1  
+**Version:** 2.3.0  
 **Platform:** Windows (PowerShell 5.1+)  
 **UI:** System.Windows.Forms
 
@@ -136,7 +136,7 @@ Runtime files (`Tool_Config.json`, `IP_Baselines.json`, history CSV, logs) are g
 | **Deep Cleanup** | Unlink, stop, uninstall, dirs/reg, full wizard, McAfee purge |
 | **System Audit** | Hand off to Software / System Collection scripts |
 | **Restore IP** | View / restore / delete / export / import baselines |
-| **Settings** | Persist scanner host, port, `nessuscli` path |
+| **Settings** | Persist scanner host, port, linking key, `nessuscli` path |
 
 Right-hand panel: live log (Clear / Copy / Save), progress bar, Open Folder.
 
@@ -164,7 +164,7 @@ See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for UI control details.
 - **Recapture only on purpose:** Use **Recapture Baseline** (with confirmation) to replace a saved restore point.
 - **Apply blocked without baseline:** IP changes refuse to run until a locked baseline exists.
 - **Destructive confirms:** Cleanup, McAfee purge, clock change, and one-click deploy ask first; full cleanup uses a double confirm.
-- **No key in config:** Linking keys are never written to `Tool_Config.json`. Use the masked field or `NESSUS_LINK_KEY`.
+- **Linking key in Settings:** Save once on the USB via Settings → auto-fills Agent tab. Treat `Tool_Config.json` as sensitive.
 - **Elevation awareness:** Non-admin sessions are warned before privileged actions.
 
 ---
@@ -173,7 +173,7 @@ See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for UI control details.
 
 | File | When created | Contents |
 |------|--------------|----------|
-| `Tool_Config.json` | First launch / Save Settings | Scanner host, port, dirs, `nessuscli` path |
+| `Tool_Config.json` | First launch / Save Settings | Scanner host, port, dirs, `nessuscli` path, linking key |
 | `IP_Baselines.json` | First adapter selection | Per-machine / per-adapter restore points |
 | `Nessus_Deployment_History.csv` | After IP apply / restore | Timestamped history trail |
 

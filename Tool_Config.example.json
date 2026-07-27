@@ -4,5 +4,6 @@
   "AVDir": ".",
   "AgentDir": ".",
   "NessusCliPath": "C:\\Program Files\\Tenable\\Nessus Agent\\nessuscli.exe",
+  "LinkingKey": "",
   "LastGroups": ""
 }

@@ -261,8 +261,10 @@ Persists operator defaults to `Tool_Config.json`.
 | Scanner / Manager Host | Link + Preflight ping/TCP |
 | Agent Link Port | Link + Preflight TCP test |
 | nessuscli Path | Install/link/status/cleanup paths |
+| Linking Key | Auto-fills Agent Install + Link tab; saved in `Tool_Config.json` |
 
-**Save Settings** updates the status strip and Agent tab host/port fields.  
+**Save Settings** updates the status strip, Agent tab host/port, and linking key field.  
+**Clear Saved Key** removes the stored key from Settings/config.  
 **Open Config File** opens the JSON in Notepad.
 
 AV / Agent directories are also remembered when you Browse on those tabs.

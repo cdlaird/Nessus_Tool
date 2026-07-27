@@ -124,7 +124,7 @@ Same root cause as above, or UAC filtered token. Always use a full elevated sess
 
 ### Link aborted: no linking key
 
-Enter the key in the masked field, or set `NESSUS_LINK_KEY` and restart the tool.
+Enter/save the key in **Settings** (then Save), or type it on the Agent tab. Optional: set `NESSUS_LINK_KEY` and restart.
 
 ### Link command runs but agent not linked
 

@@ -30,6 +30,7 @@ See also [`../Tool_Config.example.json`](../Tool_Config.example.json):
   "AVDir": "C:\\Tools\\Nessus_Tool",
   "AgentDir": "C:\\Tools\\Nessus_Tool",
   "NessusCliPath": "C:\\Program Files\\Tenable\\Nessus Agent\\nessuscli.exe",
+  "LinkingKey": "",
   "LastGroups": "Windows,Field"
 }
 ```
@@ -43,6 +44,7 @@ See also [`../Tool_Config.example.json`](../Tool_Config.example.json):
 | `AVDir` | string | Directory containing `mpam-fe.exe` |
 | `AgentDir` | string | Directory containing `NessusAgent*.msi` and companion audit scripts |
 | `NessusCliPath` | string | Full path to `nessuscli.exe` |
+| `LinkingKey` | string | Nessus agent linking key (masked in UI; auto-fills Agent tab) |
 | `LastGroups` | string | Last Groups field value (optional convenience) |
 
 ### How it is loaded
@@ -52,10 +54,12 @@ See also [`../Tool_Config.example.json`](../Tool_Config.example.json):
 3. **Settings → Save Settings** overwrites the file.
 4. Browsing AV/Agent folders also updates and saves directory fields.
 
-### What is never stored
+### What is never stored in git / shared source
 
-- Nessus **linking key**
-- SSH credentials (this tool does **not** use OpenSSH / root remote access)
+- Live Nessus **linking keys** should live only in local `Tool_Config.json` on the USB (gitignored), not in committed scripts
+- Optional fallback: environment variable `NESSUS_LINK_KEY`
+
+Treat `Tool_Config.json` as sensitive once a linking key is saved.
 
 ---
 
